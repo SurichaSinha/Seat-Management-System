@@ -1,0 +1,20 @@
+# Node
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment
+.env
+server/.env
+client/.env
+
+# Local data (MongoDB)
+mongodb-data/
+
+    
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
