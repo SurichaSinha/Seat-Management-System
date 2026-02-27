@@ -4,6 +4,8 @@ const dayjs = require("dayjs");
 const authMiddleware = require("../middleware/authMiddleware");
 const Seat = require("../models/Seat");
 const Booking = require("../models/Booking");
+const User = require("../models/User");
+const Holiday = require("../models/Holiday");
 const { isDesignatedDay } = require("../utils/rotation");
 
 
@@ -21,8 +23,21 @@ function isWeekend(date) {
 
 router.post("/", authMiddleware, async (req, res) => {
   try {
-    const user = req.user;
-    const { date, type } = req.body;
+    const { date, type, employeeEmail, seatId } = req.body;
+    let bookingUser = req.user;
+
+    if (employeeEmail) {
+      const normalizedEmail = String(employeeEmail).trim().toLowerCase();
+      const employee = await User.findOne({ email: normalizedEmail });
+
+      if (!employee) {
+        return res.status(404).json({
+          message: "Employee not found for the provided email"
+        });
+      }
+
+      bookingUser = employee;
+    }
 
     const bookingDate = dayjs(date).startOf("day");
     const today = dayjs().startOf("day");
@@ -44,9 +59,16 @@ router.post("/", authMiddleware, async (req, res) => {
       });
     }
 
+    const holiday = await Holiday.findOne({ date: bookingDate.toDate() });
+    if (holiday) {
+      return res.status(400).json({
+        message: `Cannot book seat on holidays (${holiday.reason})`
+      });
+    }
+
     // Prevent double booking
     const existingBooking = await Booking.findOne({
-      userId: user._id,
+      userId: bookingUser._id,
       date: bookingDate.toDate(),
       status: "booked"
     });
@@ -62,7 +84,7 @@ router.post("/", authMiddleware, async (req, res) => {
     
     if (type === "designated") {
 
-      if (!isDesignatedDay(user, bookingDate)) {
+      if (!isDesignatedDay(bookingUser, bookingDate)) {
         return res.status(400).json({
           message: "This is not your designated batch day"
         });
@@ -76,34 +98,59 @@ router.post("/", authMiddleware, async (req, res) => {
         });
       }
 
-      const batchSeats = await Seat.find({
-        type: "designated",
-        assignedBatch: user.batch,
-      }).select("_id");
+      let seat;
 
-      const batchSeatIds = batchSeats.map((s) => s._id);
+      if (seatId) {
+        const selectedSeat = await Seat.findById(seatId).select("_id type");
 
-      const usedSeatBookings = await Booking.find({
-        date: bookingDate.toDate(),
-        seatId: { $in: batchSeatIds },
-      }).select("seatId");
+        if (!selectedSeat || selectedSeat.type !== "designated") {
+          return res.status(400).json({
+            message: "Selected seat is not a designated seat"
+          });
+        }
 
-      const usedSeatIds = usedSeatBookings.map((b) => b.seatId);
+        const seatAlreadyBooked = await Booking.findOne({
+          date: bookingDate.toDate(),
+          seatId: selectedSeat._id,
+          status: "booked"
+        });
 
-      const seat = await Seat.findOne({
-        type: "designated",
-        assignedBatch: user.batch,
-        _id: { $nin: usedSeatIds },
-      });
+        if (seatAlreadyBooked) {
+          return res.status(400).json({
+            message: "Selected seat is no longer available"
+          });
+        }
+
+        seat = selectedSeat;
+      } else {
+        const designatedSeats = await Seat.find({
+          type: "designated",
+        }).select("_id");
+
+        const designatedSeatIds = designatedSeats.map((s) => s._id);
+
+        const usedSeatBookings = await Booking.find({
+          date: bookingDate.toDate(),
+          seatId: { $in: designatedSeatIds },
+          status: "booked",
+        }).select("seatId");
+
+        const usedSeatIds = usedSeatBookings.map((b) => b.seatId);
+
+        seat = await Seat.findOne({
+          type: "designated",
+          _id: { $nin: usedSeatIds },
+        });
+      }
 
       if (!seat) {
         return res.status(400).json({
-          message: "No designated seat available for your batch on this date"
+          message: "No designated seat available on this date"
         });
       }
 
       const booking = await Booking.create({
-        userId: user._id,
+        userId: bookingUser._id,
         seatId: seat._id,
         date: bookingDate.toDate(),
         type: "designated",
@@ -122,7 +169,7 @@ router.post("/", authMiddleware, async (req, res) => {
     
     if (type === "floater") {
 
-      if (isDesignatedDay(user, bookingDate)) {
+      if (isDesignatedDay(bookingUser, bookingDate)) {
         return res.status(400).json({
           message: "You must book designated seat on your batch day"
         });
@@ -158,19 +205,55 @@ router.post("/", authMiddleware, async (req, res) => {
         });
       }
 
-      // Find released designated seat first
-      let releasedSeatBooking = await Booking.findOne({
+      const releasedSeatBookings = await Booking.find({
         date: bookingDate.toDate(),
         type: "designated",
         status: "released"
-      }).populate("seatId");
+      }).select("seatId");
+
+      const releasedDesignatedSeatIds = releasedSeatBookings.map((booking) =>
+        booking.seatId.toString()
+      );
+
+      const floaterSeats = await Seat.find({ type: "floater" }).select("_id");
+      const floaterSeatIds = floaterSeats.map((seat) => seat._id.toString());
+
+      const floaterPoolSeatIdSet = new Set([
+        ...floaterSeatIds,
+        ...releasedDesignatedSeatIds
+      ]);
+
+      const bookedSeatsInPool = await Booking.find({
+        date: bookingDate.toDate(),
+        status: "booked",
+        seatId: { $in: Array.from(floaterPoolSeatIdSet) }
+      }).select("seatId");
+
+      const bookedSeatIdSet = new Set(
+        bookedSeatsInPool.map((booking) => booking.seatId.toString())
+      );
 
       let seat;
 
-      if (releasedSeatBooking) {
-        seat = releasedSeatBooking.seatId;
+      if (seatId) {
+        if (!floaterPoolSeatIdSet.has(String(seatId))) {
+          return res.status(400).json({
+            message: "Selected seat is not available for floater booking"
+          });
+        }
+
+        if (bookedSeatIdSet.has(String(seatId))) {
+          return res.status(400).json({
+            message: "Selected seat is no longer available"
+          });
+        }
+
+        seat = await Seat.findById(seatId);
       } else {
-        seat = await Seat.findOne({ type: "floater" });
+        const availableSeatId = Array.from(floaterPoolSeatIdSet).find(
+          (id) => !bookedSeatIdSet.has(id)
+        );
+        seat = availableSeatId ? await Seat.findById(availableSeatId) : null;
       }
 
       if (!seat) {
@@ -180,7 +263,7 @@ router.post("/", authMiddleware, async (req, res) => {
       }
 
       const booking = await Booking.create({
-        userId: user._id,
+        userId: bookingUser._id,
         seatId: seat._id,
         date: bookingDate.toDate(),
         type: "floater",
@@ -359,7 +442,32 @@ router.get("/layout", authMiddleware, async (req, res) => {
     const bookings = await Booking.find({
       date: bookingDate.toDate(),
       status: "booked"
-    }).select("seatId userId type");
+    })
+      .select("seatId userId type")
+      .populate("userId", "name");
+
+    const popularityWindowStart = dayjs().subtract(27, "day").startOf("day");
+    const popularityRows = await Booking.aggregate([
+      {
+        $match: {
+          status: "booked",
+          date: {
+            $gte: popularityWindowStart.toDate(),
+            $lte: dayjs().endOf("day").toDate()
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$seatId",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const popularityBySeatId = new Map(
+      popularityRows.map((row) => [row._id.toString(), row.count])
+    );
 
     const bookingBySeatId = new Map(
       bookings.map((booking) => [booking.seatId.toString(), booking])
@@ -376,8 +484,10 @@ router.get("/layout", authMiddleware, async (req, res) => {
           isBooked: Boolean(booking),
           isMine:
             Boolean(booking) &&
-            booking.userId.toString() === req.user._id.toString(),
-          bookingType: booking?.type ?? null
+            booking.userId?._id?.toString() === req.user._id.toString(),
+          bookingType: booking?.type ?? null,
+          bookedByName: booking?.userId?.name ?? null,
+          popularityCount: popularityBySeatId.get(seat._id.toString()) ?? 0
         };
       })
       .sort((a, b) => {
@@ -400,6 +510,29 @@ router.get("/layout", authMiddleware, async (req, res) => {
       date: bookingDate.format("YYYY-MM-DD"),
       seats: seatLayout
     });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/holidays", authMiddleware, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const query = {};
+
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) {
+        query.date.$gte = dayjs(startDate).startOf("day").toDate();
+      }
+      if (endDate) {
+        query.date.$lte = dayjs(endDate).endOf("day").toDate();
+      }
+    }
+
+    const holidays = await Holiday.find(query).sort({ date: 1 });
+    return res.json({ holidays });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });

@@ -4,6 +4,11 @@ import axios from "../api/axios";
 
 function BookingModal({ selectedDate, onClose, onSuccess }) {
   const [type, setType] = useState("designated");
+  const [seatId, setSeatId] = useState("");
+  const [availableSeats, setAvailableSeats] = useState([]);
+  const [loadingSeats, setLoadingSeats] = useState(false);
+  const [bookForOtherEmployee, setBookForOtherEmployee] = useState(false);
+  const [employeeEmail, setEmployeeEmail] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -13,16 +18,46 @@ function BookingModal({ selectedDate, onClose, onSuccess }) {
     setVisible(true);
   }, []);
 
+  useEffect(() => {
+    const loadSeats = async () => {
+      setLoadingSeats(true);
+      try {
+        const res = await axios.get(`/bookings/layout?date=${selectedDate}`);
+        const allSeats = res.data.seats ?? [];
+        const filteredSeats = allSeats.filter(
+          (seat) => !seat.isBooked && seat.type === type
+        );
+        setAvailableSeats(filteredSeats);
+      } catch {
+        setAvailableSeats([]);
+      } finally {
+        setLoadingSeats(false);
+      }
+    };
+
+    setSeatId("");
+    loadSeats();
+  }, [selectedDate, type]);
+
   const handleBooking = async (e) => {
     e.preventDefault();
     setMessage("");
     setIsSubmitting(true);
 
     try {
-      const res = await axios.post("/bookings", {
+      const payload = {
         date: selectedDate,
         type,
-      });
+      };
+
+      if (bookForOtherEmployee) {
+        payload.employeeEmail = employeeEmail.trim();
+      }
+      if (seatId) {
+        payload.seatId = seatId;
+      }
+
+      const res = await axios.post("/bookings", payload);
 
       setMessage(res.data.message);
       onSuccess();
@@ -37,7 +72,11 @@ function BookingModal({ selectedDate, onClose, onSuccess }) {
     }
   };
 
-  const disablePrimary = !type || !selectedDate || isSubmitting;
+  const disablePrimary =
+    !type ||
+    !selectedDate ||
+    isSubmitting ||
+    (bookForOtherEmployee && !employeeEmail.trim());
 
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
@@ -66,6 +105,63 @@ function BookingModal({ selectedDate, onClose, onSuccess }) {
               <option value="designated">Designated</option>
               <option value="floater">Floater</option>
             </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+              Seat selection (optional)
+            </label>
+            <select
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              value={seatId}
+              onChange={(e) => setSeatId(e.target.value)}
+              disabled={loadingSeats}
+            >
+              <option value="">Auto assign seat</option>
+              {availableSeats.map((seat) => (
+                <option key={seat._id} value={seat._id}>
+                  {seat.seatNumber}
+                </option>
+              ))}
+            </select>
+            {loadingSeats && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Loading available seats...
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-600">
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={bookForOtherEmployee}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setBookForOtherEmployee(checked);
+                  if (!checked) {
+                    setEmployeeEmail("");
+                  }
+                }}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              Book for another employee
+            </label>
+
+            {bookForOtherEmployee && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Employee email
+                </label>
+                <input
+                  type="email"
+                  value={employeeEmail}
+                  onChange={(e) => setEmployeeEmail(e.target.value)}
+                  placeholder="employee@company.com"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-1">

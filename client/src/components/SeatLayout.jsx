@@ -9,26 +9,44 @@ function SeatLayout() {
   const [seats, setSeats] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState("");
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadLayout = async () => {
-      setLoading(true);
-      setError("");
+      if (isMounted) {
+        setLoading(true);
+        setError("");
+      }
       try {
         const res = await axios.get(
           `/bookings/layout?date=${selectedDate}`
         );
-        setSeats(res.data.seats ?? []);
+        if (isMounted) {
+          setSeats(res.data.seats ?? []);
+          setLastUpdatedAt(dayjs().format("HH:mm:ss"));
+        }
       } catch (err) {
-        setError(
-          err.response?.data?.message || "Failed to load seat layout"
-        );
+        if (isMounted) {
+          setError(
+            err.response?.data?.message || "Failed to load seat layout"
+          );
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     loadLayout();
+    const timer = setInterval(loadLayout, 15000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
   }, [selectedDate]);
 
   const stats = useMemo(() => {
@@ -61,6 +79,30 @@ function SeatLayout() {
     return result;
   }, [seats]);
 
+  const liveBookedCount = useMemo(
+    () => seats.filter((seat) => seat.isBooked).length,
+    [seats]
+  );
+  const liveAvailableCount = seats.length - liveBookedCount;
+
+  const getPopularityBadge = (count) => {
+    if (count >= 8) {
+      return {
+        label: "Hot",
+        className:
+          "bg-rose-100 text-rose-700 ring-1 ring-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:ring-rose-800"
+      };
+    }
+    if (count >= 4) {
+      return {
+        label: "Popular",
+        className:
+          "bg-orange-100 text-orange-700 ring-1 ring-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:ring-orange-800"
+      };
+    }
+    return null;
+  };
+
   return (
     <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -79,6 +121,20 @@ function SeatLayout() {
           onChange={(e) => setSelectedDate(e.target.value)}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
         />
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+        <span className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 font-medium text-violet-700 ring-1 ring-violet-200 dark:bg-violet-950/30 dark:text-violet-300 dark:ring-violet-800">
+          Live seat counter: {liveBookedCount} booked / {seats.length} total
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:ring-slate-600">
+          {liveAvailableCount} available
+        </span>
+        {lastUpdatedAt && (
+          <span className="text-slate-500 dark:text-slate-400">
+            Updated at {lastUpdatedAt}
+          </span>
+        )}
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2 text-xs">
@@ -124,16 +180,32 @@ function SeatLayout() {
                 : seat.type === "floater"
                   ? "Floater"
                   : "Designated";
+            const badge = getPopularityBadge(seat.popularityCount ?? 0);
 
             return (
               <div
                 key={seat._id}
-                className={`rounded-xl border p-3 shadow-sm ${cardClass}`}
+                className={`group relative z-0 overflow-visible cursor-pointer rounded-xl border p-3 shadow-sm transition-transform hover:z-30 hover:-translate-y-0.5 ${cardClass}`}
               >
-                <p className="text-sm font-semibold">{seat.seatNumber}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{seat.seatNumber}</p>
+                  {badge && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.className}`}
+                    >
+                      {badge.label}
+                    </span>
+                  )}
+                </div>
                 <p className="mt-1 text-[11px] uppercase tracking-wide opacity-85">
                   {status}
                 </p>
+                <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-max -translate-x-1/2 rounded-md bg-slate-950 px-2.5 py-1.5 text-xs text-white opacity-100 shadow-2xl ring-1 ring-slate-700 group-hover:block">
+                  {seat.isBooked
+                    ? `Booked for: ${seat.bookedByName || "Unknown user"}`
+                    : "Currently available"}
+                  {` | Used ${seat.popularityCount ?? 0}x (last 28 days)`}
+                </div>
               </div>
             );
           })}

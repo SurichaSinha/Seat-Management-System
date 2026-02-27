@@ -6,11 +6,24 @@ import Dashboard from "./pages/Dashboard";
 import Bookings from "./pages/Bookings";
 import Profile from "./pages/Profile";
 import Signup from "./pages/Signup";
+import SeatLayoutPage from "./pages/SeatLayoutPage";
+import AdminPanel from "./pages/AdminPanel";
 
 function PrivateRoute({ children }) {
   const { user } = useContext(AuthContext);
   if (!user) {
     return <Navigate to="/" replace />;
+  }
+  return children;
+}
+
+function AdminRoute({ children }) {
+  const { user } = useContext(AuthContext);
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+  if (user.role !== "admin") {
+    return <Navigate to="/book-seats" replace />;
   }
   return children;
 }
@@ -64,6 +77,24 @@ function App() {
             <PrivateRoute>
               <Profile />
             </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/seat-layout"
+          element={
+            <PrivateRoute>
+              <SeatLayoutPage />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminPanel />
+            </AdminRoute>
           }
         />
 

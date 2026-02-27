@@ -6,6 +6,7 @@ import BookingModal from "./BookingModal";
 function WeekCalendar() {
   const [startOfWeek, setStartOfWeek] = useState(dayjs().startOf("week"));
   const [bookings, setBookings] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -13,9 +14,15 @@ function WeekCalendar() {
     const start = startOfWeek.startOf("day");
     const end = startOfWeek.endOf("week").endOf("day");
 
-    const res = await axios.get("/bookings/me");
+    const [myBookingsRes, holidaysRes] = await Promise.all([
+      axios.get("/bookings/me"),
+      axios.get(
+        `/bookings/holidays?startDate=${start.format("YYYY-MM-DD")}&endDate=${end.format("YYYY-MM-DD")}`
+      ),
+    ]);
+
     const myWeekBookings =
-      res.data.bookings?.filter((b) => {
+      myBookingsRes.data.bookings?.filter((b) => {
         const d = dayjs(b.date);
         return (
           b.status === "booked" &&
@@ -24,6 +31,7 @@ function WeekCalendar() {
         );
       }) ?? [];
 
+    setHolidays(holidaysRes.data.holidays ?? []);
     setBookings(myWeekBookings);
   };
 
@@ -54,6 +62,12 @@ function WeekCalendar() {
     const day = date.day();
     return day === 0 || day === 6;
   };
+
+  const getHolidayForDay = (date) =>
+    holidays.find(
+      (holiday) =>
+        dayjs(holiday.date).format("YYYY-MM-DD") === date.format("YYYY-MM-DD")
+    );
 
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
@@ -106,10 +120,11 @@ function WeekCalendar() {
           const dayBookings = getBookingsForDay(day);
           const past = isPastDay(day);
           const weekend = isWeekend(day);
-          const disabled = past || weekend;
+          const holiday = getHolidayForDay(day);
+          const disabled = past || weekend || Boolean(holiday);
           const myBooking = dayBookings[0];
           const hasBooking = Boolean(myBooking);
-          const canClick = !disabled && !isLoading && !hasBooking;
+          const canClick = !disabled && !isLoading;
 
           return (
             <div
@@ -119,7 +134,7 @@ function WeekCalendar() {
                 disabled
                   ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
                   : hasBooking
-                    ? "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"
+                    ? "cursor-pointer border-slate-200 bg-white hover:-translate-y-0.5 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800"
                     : "cursor-pointer border-slate-200 bg-slate-50 hover:-translate-y-0.5 hover:bg-white hover:shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
               }`}
             >
@@ -134,7 +149,16 @@ function WeekCalendar() {
 
               <div className="flex-1 overflow-y-auto">
                 {disabled ? (
-                  <p className="text-xs text-slate-300 dark:text-slate-500">Disabled</p>
+                  <div>
+                    <p className="text-xs text-slate-300 dark:text-slate-500">
+                      {holiday ? "Holiday" : "Disabled"}
+                    </p>
+                    {holiday?.reason && (
+                      <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                        {holiday.reason}
+                      </p>
+                    )}
+                  </div>
                 ) : hasBooking ? (
                   <div
                     className={`rounded-lg border p-2 text-xs ${
@@ -151,6 +175,9 @@ function WeekCalendar() {
                     </p>
                     <p className="text-slate-600 capitalize dark:text-slate-400">
                       Type: {myBooking.type}
+                    </p>
+                    <p className="mt-1 text-slate-500 dark:text-slate-400">
+                      Click to book for another employee
                     </p>
                   </div>
                 ) : (

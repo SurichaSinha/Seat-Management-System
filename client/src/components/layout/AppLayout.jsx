@@ -80,6 +80,18 @@ function AppLayout({ children }) {
               Bookings
             </NavLink>
             <NavLink
+              to="/seat-layout"
+              className={({ isActive }) =>
+                `rounded-full px-3 py-1 transition-colors ${
+                  isActive
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                    : "hover:bg-slate-50 dark:hover:bg-slate-700"
+                }`
+              }
+            >
+              Seat layout
+            </NavLink>
+            <NavLink
               to="/profile"
               className={({ isActive }) =>
                 `rounded-full px-3 py-1 transition-colors ${
@@ -91,6 +103,20 @@ function AppLayout({ children }) {
             >
               Profile
             </NavLink>
+            {user?.role === "admin" && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `rounded-full px-3 py-1 transition-colors ${
+                    isActive
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                      : "hover:bg-slate-50 dark:hover:bg-slate-700"
+                  }`
+                }
+              >
+                Admin
+              </NavLink>
+            )}
           </nav>
         </div>
       </header>

@@ -6,6 +6,7 @@ require("dotenv").config();
 const authRoutes = require("./routes/auth");
 const testRoutes = require("./routes/test");
 const bookingRoutes = require("./routes/booking");
+const adminRoutes = require("./routes/admin");
 
 const app = express();
 app.use(express.json());
@@ -18,6 +19,7 @@ mongoose.connect(process.env.MONGO_URI)
 app.use("/api/auth", authRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/", (req, res) => {
   res.send("Seat Management System API Running");
