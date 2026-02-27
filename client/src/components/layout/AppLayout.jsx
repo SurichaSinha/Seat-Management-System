@@ -1,6 +1,7 @@
 import { useContext } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import { useNavigate, NavLink } from "react-router-dom";
+import ThemeToggleButton from "../ThemeToggleButton";
 
 function AppLayout({ children }) {
   const { user, logout } = useContext(AuthContext);
@@ -12,8 +13,8 @@ function AppLayout({ children }) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm">
+    <div className="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-900 dark:text-slate-100">
+      <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex items-center justify-between gap-4 py-3">
             <div className="flex items-center gap-2">
@@ -21,10 +22,10 @@ function AppLayout({ children }) {
                 SMS
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                   Seat Management System
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Corporate seat booking dashboard
                 </p>
               </div>
@@ -33,16 +34,19 @@ function AppLayout({ children }) {
             {user && (
               <div className="flex items-center gap-3">
                 <div className="flex flex-col text-right">
-                  <span className="text-sm font-medium text-slate-800">
+                  <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
                     {user.name}
                   </span>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
                     {user.email}
                   </span>
                 </div>
+
+                <ThemeToggleButton />
+
                 <button
                   onClick={handleLogout}
-                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
                 >
                   Logout
                 </button>
@@ -50,14 +54,14 @@ function AppLayout({ children }) {
             )}
           </div>
 
-          <nav className="flex gap-2 border-t border-slate-100 pb-1 pt-2 text-xs font-medium text-slate-600">
+          <nav className="flex justify-center gap-3 border-t border-slate-100 pb-1 pt-2 text-xs font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300">
             <NavLink
               to="/book-seats"
               className={({ isActive }) =>
                 `rounded-full px-3 py-1 transition-colors ${
                   isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "hover:bg-slate-50"
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                    : "hover:bg-slate-50 dark:hover:bg-slate-700"
                 }`
               }
             >
@@ -68,8 +72,8 @@ function AppLayout({ children }) {
               className={({ isActive }) =>
                 `rounded-full px-3 py-1 transition-colors ${
                   isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "hover:bg-slate-50"
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                    : "hover:bg-slate-50 dark:hover:bg-slate-700"
                 }`
               }
             >
@@ -80,8 +84,8 @@ function AppLayout({ children }) {
               className={({ isActive }) =>
                 `rounded-full px-3 py-1 transition-colors ${
                   isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "hover:bg-slate-50"
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                    : "hover:bg-slate-50 dark:hover:bg-slate-700"
                 }`
               }
             >
@@ -99,4 +103,4 @@ function AppLayout({ children }) {
 }
 
 export default AppLayout;
-
+  

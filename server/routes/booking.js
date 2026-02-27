@@ -76,14 +76,29 @@ router.post("/", authMiddleware, async (req, res) => {
         });
       }
 
+      const batchSeats = await Seat.find({
+        type: "designated",
+        assignedBatch: user.batch,
+      }).select("_id");
+
+      const batchSeatIds = batchSeats.map((s) => s._id);
+
+      const usedSeatBookings = await Booking.find({
+        date: bookingDate.toDate(),
+        seatId: { $in: batchSeatIds },
+      }).select("seatId");
+
+      const usedSeatIds = usedSeatBookings.map((b) => b.seatId);
+
       const seat = await Seat.findOne({
         type: "designated",
         assignedBatch: user.batch,
+        _id: { $nin: usedSeatIds },
       });
 
       if (!seat) {
-        return res.status(404).json({
-          message: "No designated seat found"
+        return res.status(400).json({
+          message: "No designated seat available for your batch on this date"
         });
       }
 
@@ -113,20 +128,33 @@ router.post("/", authMiddleware, async (req, res) => {
         });
       }
 
-      const tomorrow = today.add(1, "day");
+      const bookingDay = bookingDate.day(); // 1 Mon - 5 Fri
+      const isMondayBookingFromFriday =
+        bookingDay === 1 &&
+        today.day() === 5 &&
+        bookingDate.isSame(today.add(3, "day"), "day");
 
-      const isToday = bookingDate.isSame(today);
-      const isTomorrow = bookingDate.isSame(tomorrow);
+      const isTueToFriBookingOneDayBefore =
+        bookingDay >= 2 &&
+        bookingDay <= 5 &&
+        bookingDate.isSame(today.add(1, "day"), "day");
+      const isSameDayBooking = bookingDate.isSame(today, "day");
 
-      if (!isToday && !isTomorrow) {
+      if (isTueToFriBookingOneDayBefore && now.hour() < 10) {
         return res.status(400).json({
-          message: "Floater seat can only be booked for today or tomorrow"
+          message:
+            "Floater booking for Tuesday-Friday is allowed one day before only after 10:00 AM"
         });
       }
 
-      if (isTomorrow && now.hour() < 15) {
+      if (
+        !isMondayBookingFromFriday &&
+        !isTueToFriBookingOneDayBefore &&
+        !isSameDayBooking
+      ) {
         return res.status(400).json({
-          message: "Floater booking for tomorrow allowed only after 3PM"
+          message:
+            "Floater booking rules: same-day booking is allowed, Monday can be booked on Friday, and Tuesday-Friday can be booked one day before after 10:00 AM"
         });
       }
 
@@ -170,6 +198,11 @@ router.post("/", authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(400).json({
+        message: "Selected seat is no longer available, please try again"
+      });
+    }
     console.error(error);
     return res.status(500).json({
       message: "Server error"
@@ -308,6 +341,68 @@ router.get("/availability", authMiddleware, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/layout", authMiddleware, async (req, res) => {
+  try {
+    const { date } = req.query;
+    const bookingDate = dayjs(date).startOf("day");
+
+    if (!bookingDate.isValid()) {
+      return res.status(400).json({ message: "Invalid date" });
+    }
+
+    const seats = await Seat.find({}).select(
+      "_id seatNumber type assignedBatch"
+    );
+    const bookings = await Booking.find({
+      date: bookingDate.toDate(),
+      status: "booked"
+    }).select("seatId userId type");
+
+    const bookingBySeatId = new Map(
+      bookings.map((booking) => [booking.seatId.toString(), booking])
+    );
+
+    const seatLayout = seats
+      .map((seat) => {
+        const booking = bookingBySeatId.get(seat._id.toString());
+        return {
+          _id: seat._id,
+          seatNumber: seat.seatNumber,
+          type: seat.type,
+          assignedBatch: seat.assignedBatch,
+          isBooked: Boolean(booking),
+          isMine:
+            Boolean(booking) &&
+            booking.userId.toString() === req.user._id.toString(),
+          bookingType: booking?.type ?? null
+        };
+      })
+      .sort((a, b) => {
+        const aMatch = a.seatNumber.match(/^([A-Za-z]+)(\d+)$/);
+        const bMatch = b.seatNumber.match(/^([A-Za-z]+)(\d+)$/);
+
+        if (!aMatch || !bMatch) {
+          return a.seatNumber.localeCompare(b.seatNumber);
+        }
+
+        const prefixCompare = aMatch[1].localeCompare(bMatch[1]);
+        if (prefixCompare !== 0) {
+          return prefixCompare;
+        }
+
+        return Number(aMatch[2]) - Number(bMatch[2]);
+      });
+
+    return res.json({
+      date: bookingDate.format("YYYY-MM-DD"),
+      seats: seatLayout
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

@@ -28,7 +28,7 @@ const isWithinAllowedDesignatedWindow = (date) => {
   return bookingWeek === currentWeek || bookingWeek === currentWeek + 1;
 };
 
-//Floater Rule (Tomorrow + After 3PM)
+//Floater Rule (Tomorrow + After 10AM)
 const canBookFloater = (date) => {
   const now = dayjs();
   const tomorrow = now.add(1, "day").startOf("day");
@@ -36,7 +36,7 @@ const canBookFloater = (date) => {
   const bookingDate = dayjs(date).startOf("day");
 
   if (!bookingDate.isSame(tomorrow)) return false;
-  if (now.hour() < 15) return false;
+  if (now.hour() < 10) return false;
 
   return true;
 };

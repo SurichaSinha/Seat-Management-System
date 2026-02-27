@@ -31,9 +31,7 @@ function BookingModal({ selectedDate, onClose, onSuccess }) {
         navigate("/bookings");
       }, 600);
     } catch (error) {
-      setMessage(
-        error.response?.data?.message || "Error occurred"
-      );
+      setMessage(error.response?.data?.message || "Error occurred");
     } finally {
       setIsSubmitting(false);
     }
@@ -44,29 +42,24 @@ function BookingModal({ selectedDate, onClose, onSuccess }) {
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
       <div
-        className={`w-full max-w-md rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200 transition-all duration-200 ${
-          visible
-            ? "translate-y-0 opacity-100"
-            : "translate-y-2 opacity-0"
+        className={`w-full max-w-md rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200 transition-all duration-200 dark:bg-slate-800 dark:ring-slate-700 ${
+          visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
         }`}
       >
-        <h2 className="mb-1 text-base font-semibold text-slate-900">
+        <h2 className="mb-1 text-base font-semibold text-slate-900 dark:text-slate-100">
           Book seat for {selectedDate}
         </h2>
-        <p className="mb-4 text-xs text-slate-500">
+        <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
           Choose the seat type and confirm your reservation for this date.
         </p>
 
-        <form
-          onSubmit={handleBooking}
-          className="space-y-4"
-        >
+        <form onSubmit={handleBooking} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-700">
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
               Seat type
             </label>
             <select
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
               value={type}
               onChange={(e) => setType(e.target.value)}
             >
@@ -79,7 +72,7 @@ function BookingModal({ selectedDate, onClose, onSuccess }) {
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
               disabled={isSubmitting}
             >
               Cancel
@@ -92,16 +85,12 @@ function BookingModal({ selectedDate, onClose, onSuccess }) {
               {isSubmitting && (
                 <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
               )}
-              <span>
-                {isSubmitting ? "Booking..." : "Confirm booking"}
-              </span>
+              <span>{isSubmitting ? "Booking..." : "Confirm booking"}</span>
             </button>
           </div>
         </form>
 
-        {message && (
-          <p className="mt-3 text-xs text-slate-600">{message}</p>
-        )}
+        {message && <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">{message}</p>}
       </div>
     </div>
   );

@@ -26,16 +26,14 @@ function SummaryCards() {
         ]);
 
         const weekTotal = weekRes.data.bookings?.length ?? 0;
-        const floaterToday =
-          availabilityRes.data?.availableFloaterSeats ?? 0;
+        const floaterToday = availabilityRes.data?.availableFloaterSeats ?? 0;
         const myUpcoming =
-          myRes.data.bookings
-            ?.filter(
-              (b) =>
-                b.status === "booked" &&
-                (dayjs(b.date).isSame(todayStart, "day") ||
-                  dayjs(b.date).isAfter(todayStart))
-            ).length ?? 0;
+          myRes.data.bookings?.filter(
+            (b) =>
+              b.status === "booked" &&
+              (dayjs(b.date).isSame(todayStart, "day") ||
+                dayjs(b.date).isAfter(todayStart))
+          ).length ?? 0;
 
         setStats({ weekTotal, floaterToday, myUpcoming });
       } catch (e) {
@@ -49,47 +47,47 @@ function SummaryCards() {
   }, []);
 
   const baseCard =
-    "rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md";
+    "rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-700 dark:bg-slate-800";
 
   return (
     <section className="grid gap-3 sm:grid-cols-3">
       <div className={baseCard}>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
           This week&apos;s bookings
         </p>
         <div className="mt-2 flex items-baseline gap-2">
-          <p className="text-2xl font-semibold text-slate-900">
-            {loading ? "–" : stats.weekTotal}
+          <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+            {loading ? "-" : stats.weekTotal}
           </p>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             seats booked
           </span>
         </div>
       </div>
 
       <div className={baseCard}>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
           Floater seats today
         </p>
         <div className="mt-2 flex items-baseline gap-2">
           <p className="text-2xl font-semibold text-blue-600">
-            {loading ? "–" : stats.floaterToday}
+            {loading ? "-" : stats.floaterToday}
           </p>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             available
           </span>
         </div>
       </div>
 
       <div className={baseCard}>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
           My upcoming bookings
         </p>
         <div className="mt-2 flex items-baseline gap-2">
           <p className="text-2xl font-semibold text-emerald-600">
-            {loading ? "–" : stats.myUpcoming}
+            {loading ? "-" : stats.myUpcoming}
           </p>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             reservations
           </span>
         </div>
@@ -99,4 +97,3 @@ function SummaryCards() {
 }
 
 export default SummaryCards;
-
